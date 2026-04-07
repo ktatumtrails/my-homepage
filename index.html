@@ -5,6 +5,91 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Homepage</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .weather-card {
+            width: min(100%, 720px);
+            background: rgba(255, 255, 255, 0.14);
+            padding: 20px 24px;
+            border-radius: 24px;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+            backdrop-filter: blur(10px);
+            color: white;
+            text-align: left;
+        }
+
+        .weather-card-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .weather-title {
+            font-size: 24px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        .weather-location {
+            font-size: 14px;
+            opacity: 0.85;
+        }
+
+        .weather-body {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .weather-emoji {
+            font-size: 64px;
+            line-height: 1;
+            flex: 0 0 auto;
+        }
+
+        .weather-temp {
+            font-size: 54px;
+            font-weight: 300;
+            line-height: 1;
+        }
+
+        .weather-condition {
+            margin-top: 6px;
+            font-size: 18px;
+            opacity: 0.95;
+        }
+
+        .weather-status {
+            margin-top: 14px;
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.85;
+        }
+
+        .weather-error {
+            color: #fff6c7;
+        }
+
+        @media (max-width: 600px) {
+            .weather-card {
+                padding: 18px;
+            }
+
+            .weather-body {
+                align-items: flex-start;
+            }
+
+            .weather-emoji {
+                font-size: 54px;
+            }
+
+            .weather-temp {
+                font-size: 44px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -18,6 +103,22 @@
         <h1 class="intro">Hello World</h1>
         <img src="TrailHead_Hocking.png" alt="Profile photo" class="profile-img">
         <a class="contact-btn" href="contact.html">Contact Me</a>
+
+        <section class="weather-card" aria-live="polite" aria-label="Local weather">
+            <div class="weather-card-header">
+                <h2 class="weather-title">Local Weather</h2>
+                <p class="weather-location" id="weather-location">Detecting your location...</p>
+            </div>
+            <div class="weather-body">
+                <div class="weather-emoji" id="weather-emoji">⏳</div>
+                <div>
+                    <div class="weather-temp" id="weather-temp">--°F</div>
+                    <div class="weather-condition" id="weather-condition">Fetching current conditions...</div>
+                </div>
+            </div>
+            <p class="weather-status" id="weather-status">Using your browser location and Open-Meteo current weather data.</p>
+        </section>
+
         <div class="map-card">
             <iframe
                 class="map-embed"
@@ -47,5 +148,96 @@
             </div>
         </div>
     </div>
+
+    <script>
+        const weatherLocation = document.getElementById('weather-location');
+        const weatherEmoji = document.getElementById('weather-emoji');
+        const weatherTemp = document.getElementById('weather-temp');
+        const weatherCondition = document.getElementById('weather-condition');
+        const weatherStatus = document.getElementById('weather-status');
+
+        function setWeatherMessage(message, isError = false) {
+            weatherStatus.textContent = message;
+            weatherStatus.classList.toggle('weather-error', isError);
+        }
+
+        function weatherInfoForCode(code) {
+            if (code === 0) return { emoji: '☀️', label: 'Clear sky' };
+            if (code === 1 || code === 2) return { emoji: '🌤️', label: 'Mostly clear' };
+            if (code === 3) return { emoji: '☁️', label: 'Overcast' };
+            if (code === 45 || code === 48) return { emoji: '🌫️', label: 'Foggy' };
+            if ([51, 53, 55, 56, 57].includes(code)) return { emoji: '🌦️', label: 'Drizzle' };
+            if ([61, 63, 65, 80, 81, 82, 66, 67].includes(code)) return { emoji: '🌧️', label: 'Rain' };
+            if ([71, 73, 75, 77, 85, 86].includes(code)) return { emoji: '❄️', label: 'Snow' };
+            if ([95, 96, 99].includes(code)) return { emoji: '⛈️', label: 'Thunderstorm' };
+
+            return { emoji: '🌤️', label: 'Weather update' };
+        }
+
+        function renderWeather(data) {
+            const current = data && data.current;
+
+            if (!current || typeof current.temperature_2m !== 'number' || typeof current.weather_code !== 'number') {
+                throw new Error('Open-Meteo response did not include current weather data.');
+            }
+
+            const weatherInfo = weatherInfoForCode(current.weather_code);
+            weatherEmoji.textContent = weatherInfo.emoji;
+            weatherTemp.textContent = `${Math.round(current.temperature_2m)}°F`;
+            weatherCondition.textContent = weatherInfo.label;
+            weatherLocation.textContent = 'Weather near your browser location';
+            setWeatherMessage('Updated from Open-Meteo in real time.');
+        }
+
+        async function loadWeather(latitude, longitude) {
+            const url = new URL('https://api.open-meteo.com/v1/forecast');
+            url.searchParams.set('latitude', latitude);
+            url.searchParams.set('longitude', longitude);
+            url.searchParams.set('current', 'temperature_2m,weather_code');
+            url.searchParams.set('temperature_unit', 'fahrenheit');
+            url.searchParams.set('timezone', 'auto');
+
+            const response = await fetch(url.toString());
+            if (!response.ok) {
+                throw new Error(`Open-Meteo request failed with status ${response.status}.`);
+            }
+
+            const data = await response.json();
+            renderWeather(data);
+        }
+
+        function failWeather(message) {
+            weatherEmoji.textContent = '⚠️';
+            weatherTemp.textContent = '--°F';
+            weatherCondition.textContent = 'Unable to load weather';
+            weatherLocation.textContent = 'Location unavailable';
+            setWeatherMessage(message, true);
+        }
+
+        if (!navigator.geolocation) {
+            failWeather('Your browser does not support geolocation, so the weather widget cannot determine your current location.');
+        } else {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    loadWeather(position.coords.latitude, position.coords.longitude).catch((error) => {
+                        failWeather(`Weather lookup failed: ${error.message}`);
+                    });
+                },
+                (error) => {
+                    if (error && error.code === error.PERMISSION_DENIED) {
+                        failWeather('Enable location to see your weather.');
+                        return;
+                    }
+
+                    failWeather(`Location access was denied or unavailable: ${error.message}`);
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 10000,
+                    maximumAge: 10 * 60 * 1000
+                }
+            );
+        }
+    </script>
 </body>
 </html>
