@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Contact | My Homepage</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<div class="container">
+		<nav class="top-nav" aria-label="Main navigation">
+			<a class="nav-link" href="index.html">Home</a>
+			<a class="nav-link" href="about.html">About</a>
+			<a class="nav-link" href="work.html">Work</a>
+			<a class="nav-link active" href="contact.html">Contact</a>
+		</nav>
+
+		<section class="content-card contact-card">
+			<h1 class="intro page-title">Contact</h1>
+			<p class="page-text contact-text">
+				Send a quick note using the message field below. Replace this form action with your preferred email service or backend handler when you are ready.
+			</p>
+			<form class="contact-form" action="#" method="post">
+				<label class="contact-label" for="message">Message</label>
+				<textarea
+					id="message"
+					name="message"
+					class="message-input"
+					placeholder="Write your message here..."
+					rows="8"></textarea>
+				<button type="submit" class="contact-btn">Send Message</button>
+			</form>
+		</section>
+	</div>
+</body>
+</html>
