@@ -347,39 +347,41 @@
             forecastUrl.searchParams.set('timezone', 'auto');
             forecastUrl.searchParams.set('forecast_days', '5');
 
-            const cityUrl = new URL('https://geocoding-api.open-meteo.com/v1/reverse');
-            cityUrl.searchParams.set('latitude', latitude);
-            cityUrl.searchParams.set('longitude', longitude);
-            cityUrl.searchParams.set('count', '1');
-            cityUrl.searchParams.set('language', 'en');
-            cityUrl.searchParams.set('format', 'json');
-
-            const [forecastResponse, cityResponse] = await Promise.all([
-                fetch(forecastUrl.toString()),
-                fetch(cityUrl.toString())
-            ]);
+            const forecastResponse = await fetch(forecastUrl.toString());
 
             if (!forecastResponse.ok) {
                 throw new Error(`Open-Meteo forecast request failed with status ${forecastResponse.status}.`);
             }
 
-            if (!cityResponse.ok) {
-                throw new Error(`Open-Meteo reverse geocoding request failed with status ${cityResponse.status}.`);
+            const forecastData = await forecastResponse.json();
+
+            let cityLabel = fallbackLabel;
+
+            try {
+                const cityUrl = new URL('https://geocoding-api.open-meteo.com/v1/reverse');
+                cityUrl.searchParams.set('latitude', latitude);
+                cityUrl.searchParams.set('longitude', longitude);
+                cityUrl.searchParams.set('count', '1');
+                cityUrl.searchParams.set('language', 'en');
+                cityUrl.searchParams.set('format', 'json');
+
+                const cityResponse = await fetch(cityUrl.toString());
+                if (cityResponse.ok) {
+                    const cityData = await cityResponse.json();
+                    const cityResult = cityData && Array.isArray(cityData.results) && cityData.results[0];
+                    const cityNameParts = [];
+
+                    if (cityResult?.name) cityNameParts.push(cityResult.name);
+                    if (cityResult?.admin1 && cityResult.admin1 !== cityResult.name) cityNameParts.push(cityResult.admin1);
+                    if (cityResult?.country && (!cityResult.admin1 || cityResult.country !== cityResult.admin1)) cityNameParts.push(cityResult.country);
+
+                    cityLabel = cityNameParts.join(', ') || fallbackLabel;
+                }
+            } catch (error) {
+                cityLabel = fallbackLabel;
             }
 
-            const [forecastData, cityData] = await Promise.all([
-                forecastResponse.json(),
-                cityResponse.json()
-            ]);
-
-            const cityResult = cityData && Array.isArray(cityData.results) && cityData.results[0];
-            const cityNameParts = [];
-
-            if (cityResult?.name) cityNameParts.push(cityResult.name);
-            if (cityResult?.admin1 && cityResult.admin1 !== cityResult.name) cityNameParts.push(cityResult.admin1);
-            if (cityResult?.country && (!cityResult.admin1 || cityResult.country !== cityResult.admin1)) cityNameParts.push(cityResult.country);
-
-            renderForecast(forecastData, cityNameParts.join(', ') || fallbackLabel);
+            renderForecast(forecastData, cityLabel);
         }
 
         async function loadFallbackForecast() {
